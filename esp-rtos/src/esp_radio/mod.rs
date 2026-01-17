@@ -96,18 +96,34 @@ impl esp_radio_rtos_driver::SchedulerImplementation for Scheduler {
     }
 
     fn current_task_thread_semaphore(&self) -> SemaphorePtr {
-        // SAFETY: `current_task` always returns a valid pointer to the current task.
-        let task = unsafe { self.current_task().as_mut() };
+        let task_ptr = self.current_task();
+
+        // If the current task pointer is null (scheduler not fully initialized),
+        // return a dummy semaphore that will be ignored.
+        if task_ptr.as_ptr().is_null() {
+            return SemaphorePtr::new(NonNull::dangling()).unwrap_or_default();
+        }
+
+        // SAFETY: task_ptr is now verified non-null.
+        let task = unsafe { task_ptr.as_mut() };
         *task.thread_local.thread_semaphore.get_or_insert_with(|| {
             SemaphoreHandle::new(SemaphoreKind::Counting { max: 1, initial: 0 }).leak()
         })
     }
 
     unsafe fn task_priority(&self, task: ThreadPtr) -> u32 {
+        // If the task pointer is null, return a safe default priority.
+        if task.as_ptr().is_null() {
+            return Priority::ZERO.get() as u32;
+        }
         self.with(|scheduler| task.cast::<Task>().priority(&mut scheduler.run_queue).get() as u32)
     }
 
     unsafe fn set_task_priority(&self, task: ThreadPtr, priority: u32) {
+        // If the task pointer is null, do nothing.
+        if task.as_ptr().is_null() {
+            return;
+        }
         self.with(|scheduler| {
             scheduler.set_priority(task.cast::<Task>(), Priority::new(priority as usize))
         })
