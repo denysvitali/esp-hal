@@ -98,6 +98,13 @@ impl esp_radio_rtos_driver::SchedulerImplementation for Scheduler {
     fn current_task_thread_semaphore(&self) -> SemaphorePtr {
         let task_ptr = self.current_task();
 
+        // Debug assertion to catch issues early during development/testing.
+        // In release builds, we gracefully handle null pointers.
+        debug_assert!(
+            !task_ptr.as_ptr().is_null(),
+            "current_task() returned null - scheduler may not be fully initialized"
+        );
+
         // If the current task pointer is null (scheduler not fully initialized),
         // return a dummy semaphore that will be ignored.
         if task_ptr.as_ptr().is_null() {
@@ -112,6 +119,12 @@ impl esp_radio_rtos_driver::SchedulerImplementation for Scheduler {
     }
 
     unsafe fn task_priority(&self, task: ThreadPtr) -> u32 {
+        // Debug assertion to catch issues early during development/testing.
+        debug_assert!(
+            !task.as_ptr().is_null(),
+            "task_priority() received null task pointer"
+        );
+
         // If the task pointer is null, return a safe default priority.
         if task.as_ptr().is_null() {
             return Priority::ZERO.get() as u32;
@@ -120,6 +133,12 @@ impl esp_radio_rtos_driver::SchedulerImplementation for Scheduler {
     }
 
     unsafe fn set_task_priority(&self, task: ThreadPtr, priority: u32) {
+        // Debug assertion to catch issues early during development/testing.
+        debug_assert!(
+            !task.as_ptr().is_null(),
+            "set_task_priority() received null task pointer"
+        );
+
         // If the task pointer is null, do nothing.
         if task.as_ptr().is_null() {
             return;

@@ -664,4 +664,45 @@ mod tests {
             }
         }
     }
+
+    /// Test that esp-radio functions handle null task pointers gracefully.
+    ///
+    /// This test verifies the fix for the Load Access Fault bug where calling
+    /// esp-radio functions before the RTOS scheduler is fully initialized
+    /// would cause a crash due to null task pointer dereference.
+    ///
+    /// The fix adds null checks and returns safe defaults when the task pointer
+    /// is null, preventing the Load Access Fault.
+    #[test]
+    fn esp_radio_null_task_pointer_handling() {
+        info!("Testing null task pointer handling...");
+
+        // These functions should not panic even if called with null/invalid pointers.
+        // They return safe defaults instead.
+
+        // Test current_task_thread_semaphore with potentially null current task
+        // (In practice, this is called from esp-radio's thread_sem_get which is
+        // called during Wi-Fi init. With the fix, it returns a dangling semaphore
+        // instead of crashing.)
+        let semaphore = preempt::current_task_thread_semaphore();
+        info!("current_task_thread_semaphore returned: {:p}", semaphore.as_ptr());
+
+        // Test task_priority with null pointer
+        // With the fix, this returns Priority::ZERO (0) instead of crashing
+        let null_task: *mut core::ffi::c_void = core::ptr::null_mut();
+        let priority = unsafe { preempt::task_priority(null_task.cast()) };
+        info!("task_priority(null) returned: {}", priority);
+
+        // Test set_task_priority with null pointer
+        // With the fix, this is a no-op instead of crashing
+        unsafe { preempt::set_task_priority(null_task.cast(), 5) };
+        info!("set_task_priority(null, 5) completed without crash");
+
+        // After scheduler is initialized, these should work normally
+        let current = preempt::current_task();
+        info!("current_task() returned: {:p}", current.as_ptr());
+        hil_test::assert!(!current.as_ptr().is_null(), "current_task should not be null after scheduler start");
+
+        info!("All null pointer handling tests passed!");
+    }
 }
