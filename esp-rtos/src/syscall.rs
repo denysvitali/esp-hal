@@ -10,7 +10,8 @@ extern "C" fn _getreent() -> *mut esp_rom_sys::_reent {
 
     use crate::SCHEDULER;
 
-    // SAFETY: `current_task` always returns a valid pointer to the current task.
+    // Note: This will panic if called before the scheduler is started.
+    // The caller must ensure the scheduler is initialized before using allocation.
     let task = unsafe { SCHEDULER.current_task().as_mut() };
     task.thread_local
         .reent

@@ -165,7 +165,13 @@ impl esp_radio_rtos_driver::SchedulerImplementation for Scheduler {
 
 impl WaitQueue {
     unsafe fn from_ptr<'a>(ptr: WaitQueuePtr) -> &'a mut Self {
-        // This is fine because the methods will both hold a scheduler lock.
+        debug_assert!(
+            !ptr.is_null(),
+            "WaitQueuePtr is null - wait queue may not be initialized"
+        );
+
+        // SAFETY: Caller must ensure ptr is not null.
+        // The methods will both hold a scheduler lock.
         unsafe { ptr.cast::<Self>().as_mut() }
     }
 }
@@ -177,6 +183,10 @@ impl WaitQueueImplementation for WaitQueue {
     }
 
     unsafe fn delete(queue: WaitQueuePtr) {
+        if queue.is_null() {
+            return;
+        }
+
         let wait_queue = unsafe { Box::from_raw(queue.cast::<Self>().as_ptr()) };
         core::mem::drop(wait_queue);
     }

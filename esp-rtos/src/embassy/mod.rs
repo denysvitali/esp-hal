@@ -151,6 +151,9 @@ fn __pender(context: *mut ()) {
         _ => {
             // This forces us to keep the embassy timer queue separate, otherwise we'd need to
             // reentrantly lock SCHEDULER.
+            if context.is_null() {
+                return;
+            }
             let flags = unwrap!(unsafe { context.cast::<ThreadFlag>().as_ref() });
             flags.set();
         }
